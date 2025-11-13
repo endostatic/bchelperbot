@@ -26,7 +26,10 @@ async def on_message(message):
     if message.author.bot:
         return
     await bot.process_commands(message)
-
+    
+#-------------------------------
+# Command registration
+#-------------------------------
 def register_commands(bot: commands.Bot)
     commands_list = [
         "commands",
@@ -89,5 +92,6 @@ for cmd_name in commands_list:
 # -------------------------------
 if __name__ == "__main__":
     bot.run(CONSTANTS["BOT_TOKEN"])
+
 
 
