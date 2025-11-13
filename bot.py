@@ -1,82 +1,93 @@
 #---------------------------------
 # BitCraft Helper Bot Entry Point
 #---------------------------------
-
+# bot.py
 import discord
-import io
 from discord.ext import commands
-from discord import app_commands
-import importlib
-import requests, asyncio, os
-from io import BytesIO
+from constants import CONSTANTS
+from commands import register_commands
+import asyncio
 
-# -------------------------------------------------
-# Local imports
-# -------------------------------------------------
-import constants, dev, helpers, skillpillow, commands as bot_commands
-
-# -------------------------------------------------
-# Token
-# -------------------------------------------------
-TOKEN = constants.BOT_TOKEN
-
-# -------------------------------------------------
-# Intents and Bot Setup
-# -------------------------------------------------
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-# -------------------------------------------------
-# Reload dev module for development commands
-# -------------------------------------------------
-importlib.reload(dev)
+bot = commands.Bot(command_prefix=CONSTANTS["BOT_PREFIX"], intents=intents)
 
-# -------------------------------------------------
-# Register commands from the modular command system
-# -------------------------------------------------
-bot_commands.setup(bot)
-
-# -------------------------------------------------
-# Caches
-# -------------------------------------------------
-last_char = {}
-last_emp = {}
-last_clm = {}
-user_empire_monitor = {}  # {user_id: {"task": ..., "eid": ..., "name": ..., "alerts": {}, "channel_id": ...}}
-
-# -------------------------------------------------
-# Ready event
-# -------------------------------------------------
+# -------------------------------
+# Event: on_ready
+# -------------------------------
 @bot.event
 async def on_ready():
-    print("✅ BitCraft Helper Bot is now online.")
-    try:
-        synced = await bot.tree.sync()
-        print(f"✅ BitCraft Helper Bot is ready with {len(synced)} slash commands!")
-    except Exception as e:
-        print(f"❌ Failed to sync slash commands: {e}")
+    print(f"Logged in as {bot.user}")
+    await register_commands(bot)
 
-    # Optional channel notification
-    channel = discord.utils.get(bot.get_all_channels(), name=constants.STARTUP_CHANNEL_NAME)
-    if channel:
-        try:
-            await helpers.send_pillow_text(channel, "BitCraft Helper Bot is online! ✅", width=450, height=80)
-            print(f"Message sent in #{channel.name}")
-        except Exception as e:
-            print(f"❌ Could not send message: {e}")
-    else:
-        print(f"❌ No channel named '{constants.STARTUP_CHANNEL_NAME}' found.")
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    await bot.process_commands(message)
 
-# -------------------------------------------------
-# Developer command
-# -------------------------------------------------
-@bot.command(name="reload_helpers")
-async def reload_helpers(ctx):
-    importlib.reload(dev)
-    await ctx.send("✅ Dev module reloaded!")  # Developer output exception remains direct
+def register_commands(bot: commands.Bot)
+    commands_list = [
+        "commands",
+        "setchar",
+        "skill",
+        "skillgrid",
+        "equipment",
+        "setempire",
+        "watchtowers"
+    ]
+for cmd_name in commands_list:
 
-# -------------------------------------------------
-# Run the bot
-# -------------------------------------------------
-bot.run(TOKEN)
+        # -------------------------------
+        # Prefix registration
+        # -------------------------------
+        @bot.command(name=cmd_name)
+        async def generic_prefix_command(ctx: commands.Context, *, arg: str = None, cmd_name=cmd_name) -> None:
+            if cmd_name == "skill":
+                if not validate_input(arg):
+                    await ctx.send("Invalid skill name.")
+                    return
+                image = await asyncio.to_thread(generate_skill_image_async, arg)
+                await ctx.send(file=image)
+
+            elif cmd_name == "setchar":
+                if not validate_input(arg):
+                    await ctx.send("Invalid character name.")
+                    return
+                embed = await asyncio.to_thread(send_generic_image_async, "setchar", arg)
+                await ctx.send(embed=embed)
+
+            else:
+                # Placeholder/future implementation
+                await ctx.send(f"Command '{cmd_name}' executed. (Handler not yet implemented)")
+
+        # -------------------------------
+        # Slash registration
+        # -------------------------------
+        @bot.tree.command(name=cmd_name)
+        async def generic_slash_command(interaction: Interaction, arg: str = None, cmd_name=cmd_name) -> None:
+            if cmd_name == "skill":
+                if not validate_input(arg):
+                    await interaction.response.send_message("Invalid skill name.")
+                    return
+                image = await asyncio.to_thread(generate_skill_image_async, arg)
+                await interaction.response.send_message(file=image)
+
+            elif cmd_name == "setchar":
+                if not validate_input(arg):
+                    await interaction.response.send_message("Invalid character name.")
+                    return
+                embed = await asyncio.to_thread(send_generic_image_async, "setchar", arg)
+                await interaction.response.send_message(embed=embed)
+
+            else:
+                await interaction.response.send_message(f"Command '{cmd_name}' executed. (Handler not yet implemented)")
+                
+# -------------------------------
+# Bot entry point
+# -------------------------------
+if __name__ == "__main__":
+    bot.run(CONSTANTS["BOT_TOKEN"])
+
+
